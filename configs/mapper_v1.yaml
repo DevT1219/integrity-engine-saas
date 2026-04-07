@@ -1,0 +1,255 @@
+client_id: "UNIVERSAL_LENDING_SAAS_V1"
+config_version: "2026.03"
+
+models:
+  # --- 1. CUSTOMER & LEADS ---
+  - name: "dim_customer"
+    columns:
+      - {target: "cust_id", source_type: "direct", source_field: "c_no"}
+      - {target: "pan_hash", source_type: "pii", source_field: "pan", method: "sha256"}
+      - {target: "aadhaar_mask", source_type: "pii", source_field: "uid", method: "mask_last_4"}
+      - {target: "employment_cat", source_type: "direct", source_field: "occ_type"}
+      - {target: "monthly_income", source_type: "direct", source_field: "net_inc"}
+      - {target: "age_at_app", source_type: "derived", logic: "app_date - dob"}
+      - {target: "highest_qual", source_type: "direct", source_field: "edu"}
+      - {target: "religion", source_type: "direct", source_field: "rel"}
+      - {target: "caste_category", source_type: "direct", source_field: "caste"}
+      - {target: "is_ews_flag", source_type: "derived", logic: "income < 25000"}
+      - {target: "cust_lat_long", source_type: "direct", source_field: "lat_long"}
+      - {target: "residence_pincode", source_type: "direct", source_field: "pin"}
+      - {target: "geo_cluster", source_type: "mapping", ref: "pincode_master"}
+      - {target: "segment", source_type: "derived", logic: "income_age_cluster"}
+
+  - name: "fct_marketing_leads"
+    columns:
+      - {target: "lead_id", source_type: "direct", source_field: "id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "utm_source", source_type: "direct", source_field: "src"}
+      - {target: "utm_medium", source_type: "direct", source_field: "med"}
+      - {target: "campaign_id", source_type: "direct", source_field: "camp"}
+      - {target: "acquisition_cost", source_type: "direct", source_field: "cac"}
+      - {target: "landing_page_id", source_type: "direct", source_field: "lp"}
+
+  # --- 2. KYC & BUREAU ---
+  - name: "dim_kyc_registry"
+    columns:
+      - {target: "kyc_id", source_type: "direct", source_field: "k_id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "kyc_method", source_type: "direct", source_field: "type"}
+      - {target: "kyc_status", source_type: "direct", source_field: "st"}
+      - {target: "biometric_match_score", source_type: "direct", source_field: "bio"}
+      - {target: "failure_reason", source_type: "direct", source_field: "err"}
+
+  - name: "dim_bureau_snapshot"
+    columns:
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "cibil_score", source_type: "direct", source_field: "score"}
+      - {target: "total_active_tradelines", source_type: "direct", source_field: "active"}
+      - {target: "enquiries_last_6m", source_type: "direct", source_field: "enq"}
+      - {target: "dpd_history_json", source_type: "direct", source_field: "dpd_blob"}
+
+  - name: "fct_aa_bank_insights"
+    columns:
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "avg_monthly_bal_6m", source_type: "direct", source_field: "amb"}
+      - {target: "salary_credit_date", source_type: "direct", source_field: "sal_dt"}
+      - {target: "cheque_bounce_count", source_type: "direct", source_field: "chq_bnc"}
+      - {target: "monthly_spend_ratio", source_type: "derived", logic: "dr/cr"}
+
+  # --- 3. LOAN CORE ---
+  - name: "fct_loan_applications"
+    columns:
+      - {target: "app_id", source_type: "direct", source_field: "id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "app_stage", source_type: "direct", source_field: "st"}
+      - {target: "loan_amt_requested", source_type: "direct", source_field: "amt"}
+      - {target: "branch_code", source_type: "direct", source_field: "br"}
+      - {target: "rm_id", source_type: "direct", source_field: "rm"}
+      - {target: "sm_id", source_type: "direct", source_field: "sm"}
+      - {target: "login_date", source_type: "event_log", log_table: "stage_logs", condition: "Stage=='Login'"}
+
+  - name: "dim_org_hierarchy"
+    columns:
+      - {target: "branch_code", source_type: "direct", source_field: "b_id"}
+      - {target: "branch_name", source_type: "direct", source_field: "name"}
+      - {target: "rm_id", source_type: "direct", source_field: "rm"}
+      - {target: "rm_name", source_type: "direct", source_field: "rm_n"}
+      - {target: "sm_id", source_type: "direct", source_field: "sm"}
+      - {target: "sm_name", source_type: "direct", source_field: "sm_n"}
+      - {target: "bm_name", source_type: "direct", source_field: "bm"}
+      - {target: "region_mgr", source_type: "direct", source_field: "rmgr"}
+      - {target: "zonal_mgr", source_type: "direct", source_field: "zmgr"}
+      - {target: "bank_zone", source_type: "direct", source_field: "zone"}
+
+  - name: "fct_credit_uw_decisions"
+    columns:
+      - {target: "app_id", source_type: "direct", source_field: "a_id"}
+      - {target: "decision_engine_v", source_type: "direct", source_field: "bre"}
+      - {target: "rule_id_triggered", source_type: "direct", source_field: "rule"}
+      - {target: "pd_score", source_type: "direct", source_field: "pd"}
+      - {target: "decision_code", source_type: "direct", source_field: "dec"}
+      - {target: "approved_limit", source_type: "direct", source_field: "limit"}
+      - {target: "uw_policy_id", source_type: "direct", source_field: "policy"}
+
+  - name: "dim_product_registry"
+    columns:
+      - {target: "prod_id", source_type: "direct", source_field: "p_id"}
+      - {target: "prod_type", source_type: "direct", source_field: "type"}
+      - {target: "interest_rate_apr", source_type: "direct", source_field: "roi"}
+      - {target: "processing_fee_logic", source_type: "direct", source_field: "pf"}
+      - {target: "tenure_months", source_type: "direct", source_field: "ten"}
+
+  - name: "fct_disbursement_logs"
+    columns:
+      - {target: "disb_id", source_type: "direct", source_field: "d_id"}
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "net_disbursed_amt", source_type: "direct", source_field: "amt"}
+      - {target: "processing_fee", source_type: "direct", source_field: "pf"}
+      - {target: "bank_ref_no", source_type: "direct", source_field: "utr"}
+      - {target: "payout_timestamp", source_type: "event_log", log_table: "stage_logs", condition: "Stage=='Disbursed'"}
+
+  # --- 4. LOAN ACCOUNTS & REPAYMENTS ---
+  - name: "fct_loan_master"
+    columns:
+      - {target: "loan_id", source_type: "direct", source_field: "id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "sanctioned_amt", source_type: "direct", source_field: "s_amt"}
+      - {target: "principal_os", source_type: "direct", source_field: "pos"}
+      - {target: "interest_os", source_type: "direct", source_field: "ios"}
+      - {target: "emi_amt_fixed", source_type: "direct", source_field: "emi"}
+      - {target: "loan_status", source_type: "direct", source_field: "st"}
+      - {target: "psl_eligible", source_type: "derived", logic: "priority_check"}
+
+  - name: "fct_savings_master"
+    columns:
+      - {target: "acc_id", source_type: "direct", source_field: "id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "current_bal", source_type: "direct", source_field: "bal"}
+      - {target: "avg_quarterly_bal", source_type: "direct", source_field: "aqb"}
+      - {target: "interest_accrued", source_type: "direct", source_field: "int"}
+      - {target: "acc_status", source_type: "direct", source_field: "st"}
+
+  - name: "fct_rd_master"
+    columns:
+      - {target: "rd_id", source_type: "direct", source_field: "id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "maturity_amt", source_type: "direct", source_field: "m_amt"}
+      - {target: "installment_amt", source_type: "direct", source_field: "inst"}
+      - {target: "total_paid", source_type: "direct", source_field: "paid"}
+      - {target: "maturity_date", source_type: "direct", source_field: "m_dt"}
+
+  - name: "dim_joint_acc_mapping"
+    columns:
+      - {target: "mapping_id", source_type: "direct", source_field: "id"}
+      - {target: "acc_id", source_type: "direct", source_field: "a_id"}
+      - {target: "primary_cust_id", source_type: "direct", source_field: "p_id"}
+      - {target: "secondary_cust_id", source_type: "direct", source_field: "s_id"}
+      - {target: "relation_type", source_type: "direct", source_field: "rel"}
+      - {target: "joint_hold_flag", source_type: "direct", source_field: "jh_flag"}
+
+  - name: "fct_emi_schedule"
+    columns:
+      - {target: "emi_id", source_type: "direct", source_field: "id"}
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "due_date", source_type: "direct", source_field: "dt"}
+      - {target: "due_amt", source_type: "direct", source_field: "amt"}
+      - {target: "installment_no", source_type: "direct", source_field: "seq"}
+      - {target: "payment_status", source_type: "direct", source_field: "st"}
+
+  - name: "fct_repayment_ledger"
+    columns:
+      - {target: "txn_id", source_type: "direct", source_field: "t_id"}
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "txn_date", source_type: "direct", source_field: "dt"}
+      - {target: "amt_paid", source_type: "direct", source_field: "amt"}
+      - {target: "txn_type", source_type: "direct", source_field: "tp"}
+      - {target: "principal_comp", source_type: "direct", source_field: "p"}
+      - {target: "interest_comp", source_type: "direct", source_field: "i"}
+
+  - name: "fct_bounce_forensics"
+    columns:
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "emi_id", source_type: "direct", source_field: "e_id"}
+      - {target: "bounce_date", source_type: "direct", source_field: "dt"}
+      - {target: "bounce_reason", source_type: "direct", source_field: "res"}
+      - {target: "representation_count", source_type: "direct", source_field: "cnt"}
+
+  - name: "dim_dpd_buckets"
+    columns:
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "snapshot_date", source_type: "direct", source_field: "dt"}
+      - {target: "current_dpd", source_type: "direct", source_field: "dpd"}
+      - {target: "bucket_id", source_type: "derived", logic: "dpd_calc"}
+
+  # --- 5. COLLECTIONS & OPS ---
+  - name: "fct_collections_funnel"
+    columns:
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "agent_id", source_type: "direct", source_field: "ag_id"}
+      - {target: "allocation_date", source_type: "event_log", log_table: "coll_logs", condition: "Action=='Allocated'"}
+      - {target: "call_disposition", source_type: "direct", source_field: "remark"}
+      - {target: "ptp_date", source_type: "direct", source_field: "p_dt"}
+      - {target: "ptp_amt", source_type: "direct", source_field: "p_amt"}
+
+  - name: "dim_agent_performance"
+    columns:
+      - {target: "agent_id", source_type: "direct", source_field: "id"}
+      - {target: "total_calls", source_type: "direct", source_field: "calls"}
+      - {target: "resolution_rate", source_type: "derived", logic: "res/total"}
+      - {target: "collection_efficiency_perc", source_type: "direct", source_field: "eff"}
+
+  - name: "fct_restructuring_log"
+    columns:
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "event_type", source_type: "direct", source_field: "type"}
+      - {target: "moratorium_flag", source_type: "direct", source_field: "m_flag"}
+      - {target: "old_roi", source_type: "direct", source_field: "o_roi"}
+      - {target: "new_roi", source_type: "direct", source_field: "n_roi"}
+      - {target: "approval_authority", source_type: "direct", source_field: "auth"}
+
+  - name: "dim_collateral_vault"
+    columns:
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "asset_type", source_type: "direct", source_field: "type"}
+      - {target: "valuation_amt", source_type: "direct", source_field: "val"}
+      - {target: "ltv_ratio", source_type: "derived", logic: "loan/val"}
+      - {target: "insurance_expiry", source_type: "direct", source_field: "exp"}
+
+  - name: "fct_grievance_registry"
+    columns:
+      - {target: "complaint_id", source_type: "direct", source_field: "id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "category", source_type: "direct", source_field: "cat"}
+      - {target: "resolution_status", source_type: "direct", source_field: "st"}
+      - {target: "ombudsman_flag", source_type: "direct", source_field: "o_flag"}
+      - {target: "ombudsman_ref", source_type: "direct", source_field: "o_ref"}
+
+  - name: "dim_audit_trail"
+    columns:
+      - {target: "log_id", source_type: "direct", source_field: "id"}
+      - {target: "entity_id", source_type: "direct", source_field: "e_id"}
+      - {target: "field_changed", source_type: "direct", source_field: "col"}
+      - {target: "old_val", source_type: "direct", source_field: "pre"}
+      - {target: "new_val", source_type: "direct", source_field: "post"}
+      - {target: "modified_by", source_type: "direct", source_field: "user"}
+      - {target: "timestamp", source_type: "direct", source_field: "ts"}
+
+  - name: "fct_closure_summary"
+    columns:
+      - {target: "loan_id", source_type: "direct", source_field: "l_id"}
+      - {target: "closure_type", source_type: "direct", source_field: "type"}
+      - {target: "noc_issued_dt", source_type: "direct", source_field: "noc_dt"}
+      - {target: "total_interest_paid", source_type: "direct", source_field: "int"}
+      - {target: "total_loss", source_type: "direct", source_field: "loss"}
+
+  # --- 6. THE NEW SNAPSHOT MODEL (Model #26) ---
+  - name: "fct_monthly_financial_snapshot"
+    columns:
+      - {target: "snapshot_id", source_type: "derived", logic: "loan_id + month_end"}
+      - {target: "loan_id", source_type: "direct", source_field: "id"}
+      - {target: "cust_id", source_type: "direct", source_field: "c_id"}
+      - {target: "snapshot_date", source_type: "direct", source_field: "eom_dt"}
+      - {target: "closing_principal_os", source_type: "direct", source_field: "pos"}
+      - {target: "closing_interest_os", source_type: "direct", source_field: "ios"}
+      - {target: "dpd_at_eom", source_type: "direct", source_field: "dpd"}
+      - {target: "provisioning_amt", source_type: "derived", logic: "npa_provision_calc"}
